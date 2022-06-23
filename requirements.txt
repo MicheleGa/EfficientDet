@@ -1,0 +1,14 @@
+torch
+torchvision
+torchaudio
+torchsummary
+pillow
+numpy
+tqdm
+scikit-learn
+pandas
+matplotlib
+jupyter
+timm
+effdet
+ensemble-boxes
