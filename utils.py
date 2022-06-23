@@ -54,9 +54,10 @@ def show_images(df: pd.DataFrame,
         draw.rectangle([box[0], box[2], box[1], box[3]], width=10, outline=linecolor)
 
     plt.figure(figsize=(10, 10))
+    plt.imshow(image)
     plt.axis('off')
     plt.suptitle(title)
-    plt.savefig(image)
+    plt.savefig(f'./{title} - idx {idx}.jpg')
     plt.clf()
 
 

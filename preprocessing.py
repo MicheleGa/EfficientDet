@@ -4,7 +4,7 @@ from zipfile import ZipFile
 import pandas as pd
 
 
-def unzip_dataset(dataset_path='./dataset', name='GlobalWheatDetection') -> None:
+def unzip_dataset(dataset_path='./dataset', name='GlobalWheatDetection/') -> None:
     """
     Extract zipped dataset in order to get a folder with train/test images and a
     csv file with annotations.
@@ -21,23 +21,20 @@ def unzip_dataset(dataset_path='./dataset', name='GlobalWheatDetection') -> None
 
     test_dir = os.path.join(path, 'test')
     os.makedirs(test_dir)
-    print(path)
-    print(train_dir)
-    print(test_dir)
 
     for file in os.listdir(path):
+
         file_path = os.path.join(path, file)
 
-        print(file_path)
         if file == 'train.zip':
             with ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(path=train_dir)
+                zip_ref.extractall(train_dir)
         elif file == 'test.zip':
             with ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(path=test_dir)
-        else:
+                zip_ref.extractall(test_dir)
+        elif file == 'train.csv.zip':
             with ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(path=path)
+                zip_ref.extractall(path)
 
 
 def pre_process_annotations(df: pd.DataFrame) -> pd.DataFrame:

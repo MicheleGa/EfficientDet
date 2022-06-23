@@ -22,9 +22,11 @@ def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [Da
 
     # process file with annotations
     annotations = pd.read_csv(os.path.join(train_path, name, 'train.csv'))
+    print('Dataset head before preprocessing:')
     print(annotations.head())
 
     annotations = pre_process_annotations(annotations)
+    print('Dataset head after preprocessing:')
     print(annotations.head())
 
     # splitting the dataset
@@ -33,11 +35,11 @@ def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [Da
     # get train and validation dataloaders
     path_images = os.path.join(train_path, name, 'train')
     train_dataset = GWDataset(path_images=path_images,
-                              dataset=train_set[:500],
+                              dataset=train_set,
                               transforms=data_transforms['train'])
 
     validation_dataset = GWDataset(path_images=path_images,
-                                   dataset=val_set[:100],
+                                   dataset=val_set,
                                    transforms=data_transforms['val'])
     # show a data sample with bbox
     idx = 100
@@ -63,7 +65,6 @@ def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [Da
 def model_definition(inference=False,
                      checkpoint_path='',
                      num_classes=2,
-                     image_size=512,
                      model_name='efficientdet_d0',
                      pretrained_backbone=False,
                      freeze_backbone=False):
@@ -74,7 +75,6 @@ def model_definition(inference=False,
         inference: false to get model to train.
         checkpoint_path: path to the pre-trained/fine-tuned model.
         num_classes: output classes of the classifier from the detector.
-        image_size: 512*512 default, i.e. efficient det d0 architecture
         model_name: sepcifies the architecture to select
         pretrained_backbone: false to load model checkpoints from models dir
         freeze_backbone: true to avoid changing also weights of the backbone during training
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     print(timm.list_models('*efficientnet*'))
 
     # get model and print infos
-    checkpoint_path = './models/'
+    checkpoint_path = './models'
     efficient_det_model_name = 'tf_efficientdet_d0'
     efficient_det_checkpoint = ''
     print(f'Model: {efficient_det_model_name}')
@@ -179,6 +179,7 @@ if __name__ == '__main__':
 
     efficient_det_model = model_definition(checkpoint_path=os.path.join(checkpoint_path,
                                                                         efficient_det_checkpoint),
+                                           model_name=efficient_det_model_name,
                                            pretrained_backbone=False)
 
     print(f'Parameters: {count_parameters(efficient_det_model)}')
@@ -206,6 +207,7 @@ if __name__ == '__main__':
     # restore model
     efficient_det_model = model_definition(inference=True,
                                            checkpoint_path=save_path,
+                                           model_name=efficient_det_model_name,
                                            pretrained_backbone=False
                                            )
     efficient_det_model = efficient_det_model.to(device)
