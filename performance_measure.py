@@ -1,5 +1,4 @@
 import os
-from typing import List
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -9,7 +8,7 @@ from ensemble_boxes import weighted_boxes_fusion
 
 def get_test_images(dataset_path='./dataset',
                     name='GlobalWheatDetection',
-                    data_transforms=None) -> [List[Image], List[str]]:
+                    data_transforms=None):
     """
     Collect the 10 test images in a list of PIL objects
 
@@ -50,6 +49,9 @@ def post_process(detections,
                  iou_threshold=0.3,
                  image_crop=512) -> pd.DataFrame:
     """
+    Process prediction of the efficient det, considering that each box have to be rescaled in
+    order to be displayed over the test image in order to see its effectiveness.
+
     Args:
         detections: detected bboxes by the fine-tuned efficient det.
         image_sizes: list of pair (height, width) for each image in order to rescale bboxes correctly.

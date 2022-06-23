@@ -33,11 +33,11 @@ def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [Da
     # get train and validation dataloaders
     path_images = os.path.join(train_path, name, 'train')
     train_dataset = GWDataset(path_images=path_images,
-                              dataset=train_set,
+                              dataset=train_set[:500],
                               transforms=data_transforms['train'])
 
     validation_dataset = GWDataset(path_images=path_images,
-                                   dataset=val_set,
+                                   dataset=val_set[:100],
                                    transforms=data_transforms['val'])
     # show a data sample with bbox
     idx = 100

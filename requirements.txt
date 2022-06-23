@@ -2,6 +2,7 @@ torch
 torchvision
 torchaudio
 torchsummary
+tensorboard
 pillow
 numpy
 tqdm
