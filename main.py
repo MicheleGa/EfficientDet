@@ -1,44 +1,27 @@
 import os
-import time
-import copy
 import torch
-import torchvision
-import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-import re
 import gc
-from PIL import Image, ImageDraw, ImageFont
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torchvision import datasets, transforms
-from torch.utils.data.sampler import SubsetRandomSampler
-from torch.utils.data import Dataset, DataLoader
-from torchsummary import summary
-from torch.utils.tensorboard import SummaryWriter
-from typing import Callable, Dict, List, Tuple, Union
-import tqdm
-import datetime
+from torchvision import transforms
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 import timm
-from timm.utils.metrics import accuracy
 from effdet.config.model_config import efficientdet_model_param_dict
 from effdet import get_efficientdet_config, EfficientDet, DetBenchTrain, DetBenchPredict
 from effdet.efficientdet import HeadNet
-from ensemble_boxes import nms, weighted_boxes_fusion
 from dataset_class import GWDataset
 from preprocessing import unzip_dataset, pre_process_annotations
 from train import train
+from performance_measure import get_test_images, post_process
 from utils import fix_random, show_images, count_parameters, set_requires_grad_for_layer
 
 
-def data_preparation() -> [DataLoader, DataLoader]:
+def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [DataLoader, DataLoader]:
     # unzip dataset
     unzip_dataset()
 
     # process file with annotations
-    annotations = pd.read_csv('./dataset/GlobalWheatDetection/train.csv')
+    annotations = pd.read_csv(os.path.join(train_path, name, 'train.csv'))
     print(annotations.head())
 
     annotations = pre_process_annotations(annotations)
@@ -48,16 +31,17 @@ def data_preparation() -> [DataLoader, DataLoader]:
     train_set, val_set = train_test_split(annotations, test_size=0.2, random_state=42)
 
     # get train and validation dataloaders
-    train_dataset = GWDataset(path_images='/content/GlobalWheatDetection/train',
+    path_images = os.path.join(train_path, name, 'train')
+    train_dataset = GWDataset(path_images=path_images,
                               dataset=train_set,
                               transforms=data_transforms['train'])
 
-    validation_dataset = GWDataset(path_images='/content/GlobalWheatDetection/train',
+    validation_dataset = GWDataset(path_images=path_images,
                                    dataset=val_set,
                                    transforms=data_transforms['val'])
     # show a data sample with bbox
     idx = 100
-    show_images(annotations, idx, '/content/GlobalWheatDetection/train', 'Wheat Head Example', 'red')
+    show_images(annotations, idx, path_images, 'Wheat Head Example', 'red')
 
     def collate_fn(batch):
         return tuple(zip(*batch))
@@ -207,14 +191,50 @@ if __name__ == '__main__':
 
     # model training
     epochs = 5
+
+    save_path = os.path.join(checkpoint_path, efficient_det_model_name + '_gwd.pth')
     train(model_name=efficient_det_model_name,
           efficient_det_model=efficient_det_model,
           epochs=epochs,
           train_loader=train_loader,
           valid_loader=valid_loader,
           device=device,
-          save_path=os.path.join(checkpoint_path, efficient_det_model_name + '_gwd.pth')
-    )
+          save_path=save_path
+          )
 
+    # performance measure
+    # restore model
+    efficient_det_model = model_definition(inference=True,
+                                           checkpoint_path=save_path,
+                                           pretrained_backbone=False
+                                           )
+    efficient_det_model = efficient_det_model.to(device)
 
+    # get test data
+    images_tensor, test_images_ids, test_image_sizes = get_test_images(data_transforms=data_transforms)
+    num_images = len(test_images_ids)
 
+    # test model
+    efficient_det_model.eval()
+    with torch.no_grad():
+        detections = efficient_det_model(images_tensor.to(device),
+                                         img_info={'img_size': torch.tensor(test_image_sizes, device=device).float(),
+                                                   'img_scale': torch.ones(num_images, device=device).float()})
+
+    confidence_threshold = 0.2
+    print('Number of test images: ', num_images)
+    print('Confidence threshold: ', confidence_threshold)
+    print('Detection data structure (per test image): ', detections[0])
+
+    predicted_data = post_process(detections=detections,
+                                  image_sizes=test_image_sizes,
+                                  test_image_ids=test_images_ids
+                                  )
+    # show predicted bboxes on unseen data
+    # idx is 0...9
+    idx = 0
+    show_images(df=predicted_data,
+                idx=idx,
+                folder=os.path.join('./dataset', 'GlobalWheatDetection', 'test'),
+                title='Wheat Head Test',
+                linecolor='red')

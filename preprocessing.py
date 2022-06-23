@@ -9,8 +9,8 @@ def unzip_dataset(dataset_path='./dataset', name='GlobalWheatDetection') -> None
     csv file with annotations.
 
     Args:
-        dataset_path: path to the dataset directory
-        name: name of the specific dataset
+        dataset_path: path to the dataset directory.
+        name: name of the specific dataset.
     """
 
     path = os.path.join(dataset_path, name)
@@ -40,9 +40,9 @@ def pre_process_annotations(df: pd.DataFrame) -> pd.DataFrame:
     coordinates in the image.
 
     Args:
-        df: annotations for training samples
+        df: annotations for training samples.
     Return:
-        df: dataframe without correctly formatted annotations
+        df: dataframe without correctly formatted annotations.
     """
 
     # Adjust bbox column format

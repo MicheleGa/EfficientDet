@@ -12,3 +12,8 @@ Reference dataset: [https://www.kaggle.com/c/global-wheat-detection](https://www
 
 Model's implementation in Pytorch by Ross Wightman: [https://github.com/rwightman/efficientdet-pytorch](https://github.com/rwightman/efficientdet-pytorch)
 
+Code adapted from: 
+> - notebooks from course by [Giuseppe Lisanti](https://www.unibo.it/sitoweb/giuseppe.lisanti/en) and [Lorenzo Stacchio](https://www.unibo.it/sitoweb/lorenzo.stacchio2/en)
+> - [https://www.kaggle.com/code/sadilkhan786/global-wheat-detection-pytorch](https://www.kaggle.com/code/sadilkhan786/global-wheat-detection-pytorch)
+> - [https://www.kaggle.com/code/shonenkov/training-efficientdet/notebook](https://www.kaggle.com/code/shonenkov/training-efficientdet/notebook))
+> - [https://medium.com/data-science-at-microsoft/training-efficientdet-on-custom-data-with-pytorch-lightning-using-an-efficientnetv2-backbone-1cdf3bd7921f](https://medium.com/data-science-at-microsoft/training-efficientdet-on-custom-data-with-pytorch-lightning-using-an-efficientnetv2-backbone-1cdf3bd7921f)

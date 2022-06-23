@@ -1,5 +1,4 @@
 import os
-import re
 import numpy as np
 import torch
 import random
@@ -78,7 +77,6 @@ def set_requires_grad_for_layer(model: torch.nn.Module, train: bool) -> None:
 
     Args:
         model: object detector.
-        layer: the model to freeze.
         train: if true train the model parameter.
     """
     for p in model.parameters():

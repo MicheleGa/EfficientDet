@@ -14,7 +14,7 @@ class GWDataset(Dataset):
             transforms: torchvision.transforms = None,
     ) -> None:
         """
-        Init the dataset
+        Init the dataset.
 
         Args:
             path_images: the path to the folder containing the images.

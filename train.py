@@ -16,18 +16,20 @@ def train_loop(model: torch.nn.Module,
                device: str,
                writer: SummaryWriter) -> [List[float], List[float]]:
     """
+    Train/Validation loop.
+
     Args:
-        model: object detector
-        trainloader: train data
-        validloader: validation data
-        epochs: number of epochs to train the model
-        optimizer: compute gradients
-        lr_scheduler: simple scheduler that decrease lr during training
-        device: cpu/cuda
-        writer: log statistics to Tensorboard
+        model: object detector.
+        trainloader: train data.
+        validloader: validation data.
+        epochs: number of epochs to train the model.
+        optimizer: compute gradients.
+        lr_scheduler: simple scheduler that decrease lr during training.
+        device: cpu/cuda.
+        writer: log statistics to Tensorboard.
     Return:
-         train_losses: train loss for all epochs
-         valid_losses: valid loss for all epochs
+         train_losses: train loss for all epochs.
+         valid_losses: valid loss for all epochs.
     """
 
     train_losses, valid_losses = [], []
@@ -127,14 +129,16 @@ def train(model_name: str,
           save_path: str
           ) -> None:
     """
+    Define parameters for training and perform fine-tuning of the object detector.
+
     Args:
-        model_name: specify the type of EfficientDet
-        efficient_det_model: torch.nn.Module to fine-tune
-        epochs: number of training loops
-        train_loader: training data
-        valid_loader: validation data
-        device: cpu/cuda
-        save_path: location where model will be saved
+        model_name: specify the type of EfficientDet.
+        efficient_det_model: torch.nn.Module to fine-tune.
+        epochs: number of training loops.
+        train_loader: training data.
+        valid_loader: validation data.
+        device: cpu/cuda.
+        save_path: location where model will be saved.
     """
 
     optimizer = optim.AdamW(efficient_det_model.parameters(), lr=0.001)
