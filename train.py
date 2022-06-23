@@ -1,9 +1,10 @@
+import datetime
 from typing import List
-
 import torch
+import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
+import tqdm
 
 
 def train_loop(model: torch.nn.Module,
@@ -33,7 +34,6 @@ def train_loop(model: torch.nn.Module,
     for epoch in range(epochs):
         print("---- Train Epoch %s ----" % (epoch + 1))
         model.train()
-        size_ds_train = len(trainloader.dataset)
         num_batches = len(trainloader)
         running_train_loss = 0.0
         log_interval = num_batches // 5
@@ -116,3 +116,49 @@ def train_loop(model: torch.nn.Module,
             writer.add_scalar("Metrics/Loss_validation", running_valid_loss / train_batches, epoch + 1)
 
     return train_losses, valid_losses
+
+
+def train(model_name: str,
+          efficient_det_model: torch.nn.Module,
+          epochs: int,
+          train_loader: torch.utils.data.DataLoader,
+          valid_loader: torch.utils.data.DataLoader,
+          device: str,
+          save_path: str
+          ) -> None:
+    """
+    Args:
+        model_name: specify the type of EfficientDet
+        efficient_det_model: torch.nn.Module to fine-tune
+        epochs: number of training loops
+        train_loader: training data
+        valid_loader: validation data
+        device: cpu/cuda
+        save_path: location where model will be saved
+    """
+
+    optimizer = optim.AdamW(efficient_det_model.parameters(), lr=0.001)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
+
+    # free memory
+    torch.cuda.empty_cache()
+
+    # track experiments
+    writer = SummaryWriter(log_dir=f'runs/{model_name}_{datetime.datetime.now()}')
+
+    _, _ = train_loop(efficient_det_model,
+                      train_loader,
+                      valid_loader,
+                      epochs,
+                      optimizer,
+                      scheduler,
+                      device,
+                      writer)
+
+    writer.flush()
+    writer.close()
+
+    # save model for inference
+    torch.save({
+        'model_state_dict': efficient_det_model.model.state_dict()
+    }, save_path)

@@ -61,7 +61,7 @@ def show_images(df: pd.DataFrame,
     plt.clf()
 
 
-def count_parameters(model: torch.nn.Module):
+def count_parameters(model: torch.nn.Module) -> int:
     """
     Counts parameters of the object detector.
 
