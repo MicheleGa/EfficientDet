@@ -1,4 +1,5 @@
 import os
+from typing import List
 import numpy as np
 import torch
 import random
@@ -51,7 +52,7 @@ def show_images(df: pd.DataFrame,
     draw = ImageDraw.Draw(image)
 
     for box in objects:
-        draw.rectangle([box[0], box[2], box[1], box[3]], width=10, outline=linecolor)
+        draw.rectangle([box[0], box[2], box[1], box[3]], width=2, outline=linecolor)
 
     plt.figure(figsize=(10, 10))
     plt.imshow(image)
@@ -59,6 +60,39 @@ def show_images(df: pd.DataFrame,
     plt.suptitle(title)
     plt.savefig(f'./{title} - idx {idx}.jpg')
     plt.clf()
+
+
+def build_output_dataframe(scaled_bboxes: List,
+                           test_image_ids: List):
+    """
+    Build a pandas dataframe to visualize the predicted boxes.
+
+    Args:
+        scaled_bboxes: predicted bbox for each test image.
+        test_image_ids: test image ids.
+    Return:
+        predicted_data: pandas dataframe in a suitable format to be used with show_images.
+    """
+
+    predicted_data = {
+        'image_id': [],
+        'x_min': [],
+        'y_min': [],
+        'x_max': [],
+        'y_max': []
+    }
+
+    for i in range(len(scaled_bboxes)):
+        for box in scaled_bboxes[i]:
+            predicted_data['image_id'].append(test_image_ids[i])
+            predicted_data['x_min'].append(box[0])
+            predicted_data['y_min'].append(box[1])
+            predicted_data['x_max'].append(box[2])
+            predicted_data['y_max'].append(box[3])
+
+    predicted_data = pd.DataFrame(predicted_data)
+
+    return predicted_data
 
 
 def count_parameters(model: torch.nn.Module) -> int:

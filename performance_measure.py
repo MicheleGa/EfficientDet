@@ -1,6 +1,6 @@
 import os
+from typing import List
 import numpy as np
-import pandas as pd
 from PIL import Image
 import torch
 from ensemble_boxes import weighted_boxes_fusion
@@ -30,7 +30,8 @@ def get_test_images(dataset_path='./dataset',
         images.append(Image.open(path_image).convert('RGB'))
         test_image_ids.append(image_id[:-4])
 
-    # as in validation during training, size needed
+    # we will predict boxes in images that are 512*512, so rescale to 1024*1024,
+    # i.e. original resolution, must be done
     test_image_sizes = [(image.size[1], image.size[0]) for image in images]
 
     images_tensor = []
@@ -46,8 +47,9 @@ def post_process(detections,
                  image_sizes,
                  test_image_ids,
                  confidence_threshold=0.2,
-                 iou_threshold=0.3,
-                 image_crop=512) -> pd.DataFrame:
+                 iou_threshold=0.44,
+                 skip_box_thr=0.43,
+                 img_size=512) -> [List, List, List]:
     """
     Process prediction of the efficient det, considering that each box have to be rescaled in
     order to be displayed over the test image in order to see its effectiveness.
@@ -69,16 +71,20 @@ def post_process(detections,
     prediction_classes = []
 
     for i in range(len(detections)):
+        # get predicted bbox coordinates for a image
         boxes = detections[i][:, :4]
+        # get scores for a image bboxes
         scores = detections[i][:, 4]
+        # get classes for a image bboxes
         classes = detections[i][:, 5]
 
+        # np.where results are wrapped in a numpy array
         indexes = np.where(scores > confidence_threshold)[0]
-        boxes = boxes[indexes] / image_crop
+        boxes = boxes[indexes]
         scores = scores[indexes]
         classes = classes[indexes]
 
-        boxes = [boxes.tolist()]
+        boxes = [(boxes / img_size).tolist()]
         scores = [scores.tolist()]
         classes = [classes.tolist()]
 
@@ -86,46 +92,24 @@ def post_process(detections,
             boxes,
             scores,
             classes,
-            iou_thr=iou_threshold
+            iou_thr=iou_threshold,
+            skip_box_thr=skip_box_thr
         )
-        boxes = boxes * (image_crop - 1)
+        boxes = boxes * (img_size - 1)
 
         prediction_boxes.append(boxes.tolist())
         prediction_scores.append(scores.tolist())
         prediction_classes.append(classes.tolist())
 
+    # rescale boxes in order to be put on a (1024, 1024) image
     scaled_bboxes = []
     for bboxes, img_dims in zip(prediction_boxes, image_sizes):
-        im_h, im_w = img_dims
+        im_h, im_w = img_dims  # (1024, 1024)
 
         if len(bboxes) > 0:
             scaled_bboxes.append(
-                (
-                        np.array(bboxes)
-                        * [
-                            im_w / image_crop,
-                            im_h / image_crop,
-                            im_w / image_crop,
-                            im_h / image_crop,
-                        ]
-                ).tolist()
-            )
+                (np.array(bboxes) * [im_w / img_size, im_h / img_size, im_w / img_size, im_h / img_size]).tolist())
         else:
             scaled_bboxes.append(bboxes)
 
-    predicted_data = {'image_id': [],
-                      'x_min': [],
-                      'y_min': [],
-                      'x_max': [],
-                      'y_max': []
-                      }
-
-    for i in range(len(scaled_bboxes)):
-        for box in scaled_bboxes[i]:
-            predicted_data['image_id'].append(test_image_ids[i])
-            predicted_data['x_min'].append(box[0])
-            predicted_data['y_min'].append(box[1])
-            predicted_data['x_max'].append(box[2])
-            predicted_data['y_max'].append(box[3])
-
-    return pd.DataFrame(predicted_data)
+    return scaled_bboxes, prediction_scores, prediction_classes

@@ -11,6 +11,7 @@ class GWDataset(Dataset):
             self,
             path_images: str,
             dataset: pd.DataFrame,
+            original_img_size: int,
             transforms: torchvision.transforms = None,
     ) -> None:
         """
@@ -35,18 +36,22 @@ class GWDataset(Dataset):
         boxes = torch.tensor(self.dataset[self.dataset['image_id'] == image_id]
                              [['y_min', 'x_min', 'y_max', 'x_max']].values, dtype=torch.float32)
 
+        # normalize coordinates (as in Albumentations library for PASCAL VOC format)
+        boxes /= self.original_img_size
+
         # There is only one class
         labels = torch.ones((boxes.shape[0],), dtype=torch.int64)
 
         # need also to record image size and scale, needed during evaluation to get
         # detector prediction in the right format
-        h, w = image.size
 
-        target = {'boxes': boxes,
-                  'labels': labels,
-                  'image_id': torch.tensor([idx]),
-                  'img_size': (h, w),
-                  'img_scale': torch.tensor([1.0])}
+        target = {
+            'boxes': boxes,
+            'labels': labels,
+            'image_id': torch.tensor([idx]),
+            'img_size': image.size,
+            'img_scale': torch.tensor([1.0])
+        }
 
         if self.transforms is not None:
             image = self.transforms(image)

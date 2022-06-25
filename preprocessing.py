@@ -54,6 +54,8 @@ def pre_process_annotations(df: pd.DataFrame) -> pd.DataFrame:
     df['box_width'] = df['bbox'].apply(lambda x: float(re.findall(r'[0-9.]+', x.split(',')[2])[0]))
     df['box_height'] = df['bbox'].apply(lambda x: float(re.findall(r'[0-9.]+', x.split(',')[3])[0]))
     df.drop('bbox', axis=1, inplace=True)
+
+    # switch to PASCAL VOC annotation format
     df['x_max'] = df['x_min'] + df['box_width']
     df['y_max'] = df['y_min'] + df['box_height']
 

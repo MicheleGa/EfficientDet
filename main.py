@@ -13,10 +13,11 @@ from dataset_class import GWDataset
 from preprocessing import unzip_dataset, pre_process_annotations
 from train import train
 from performance_measure import get_test_images, post_process
-from utils import fix_random, show_images, count_parameters, set_requires_grad_for_layer
+from utils import fix_random, show_images, count_parameters, set_requires_grad_for_layer, build_output_dataframe
 
 
-def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [DataLoader, DataLoader]:
+def data_preparation(original_img_size, train_path='./dataset', name='GlobalWheatDetection') -> [DataLoader,
+                                                                                                 DataLoader]:
     # unzip dataset
     unzip_dataset()
 
@@ -36,10 +37,12 @@ def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [Da
     path_images = os.path.join(train_path, name, 'train')
     train_dataset = GWDataset(path_images=path_images,
                               dataset=train_set,
+                              original_img_size=original_img_size,
                               transforms=data_transforms['train'])
 
     validation_dataset = GWDataset(path_images=path_images,
                                    dataset=val_set,
+                                   original_img_size=original_img_size,
                                    transforms=data_transforms['val'])
     # show a data sample with bbox
     idx = 100
@@ -50,12 +53,14 @@ def data_preparation(train_path='./dataset', name='GlobalWheatDetection') -> [Da
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
-                              shuffle=False,
+                              shuffle=True,
+                              drop_last=True,
                               num_workers=num_workers,
                               collate_fn=collate_fn)
     valid_loader = DataLoader(validation_dataset,
                               batch_size=batch_size,
                               shuffle=False,
+                              drop_last=False,
                               num_workers=num_workers,
                               collate_fn=collate_fn)
 
@@ -75,7 +80,7 @@ def model_definition(inference=False,
         inference: false to get model to train.
         checkpoint_path: path to the pre-trained/fine-tuned model.
         num_classes: output classes of the classifier from the detector.
-        model_name: sepcifies the architecture to select
+        model_name: specifies the architecture to select
         pretrained_backbone: false to load model checkpoints from models dir
         freeze_backbone: true to avoid changing also weights of the backbone during training
     Return:
@@ -134,28 +139,30 @@ if __name__ == '__main__':
     std_image_net = [0.229, 0.224, 0.225]
     normalize = transforms.Normalize(mean_image_net, std_image_net)
 
-    # image sizes for efficient det d0
-    resize_crop = 512
-    image_crop = 512
+    # width/height of all input img is 1024
+    original_img_size = 1024
+
+    # resize images to EfficientDet d0 input resolution, i.e. 512*512
+    img_size = 512
 
     # quite standard augmentations
-    data_transforms = {'train': transforms.Compose([transforms.RandomResizedCrop(resize_crop),
+    data_transforms = {'train': transforms.Compose([transforms.RandomResizedCrop(img_size),
                                                     transforms.RandomHorizontalFlip(),
                                                     transforms.ToTensor(),
                                                     normalize]),
 
-                       'val': transforms.Compose([transforms.Resize(image_crop),
+                       'val': transforms.Compose([transforms.Resize(img_size),
                                                   transforms.ToTensor(),
                                                   normalize])}
 
     # hyperparameters adapted to resource availability :(
-    num_workers = 2
-    batch_size = 8
+    num_workers = 1
+    batch_size = 16
 
     # background + white head classes
     num_classes = 2
 
-    train_loader, valid_loader = data_preparation()
+    train_loader, valid_loader = data_preparation(original_img_size)
 
     # model definition and training
     print('Available efficient det models:')
@@ -175,7 +182,7 @@ if __name__ == '__main__':
     elif efficient_det_model_name == 'tf_efficientdet_d0_ap':
         efficient_det_checkpoint = 'tf_efficientdet_d0_ap-d0cdbd0a.pth'
     else:
-        raise 'Invalid model'
+        raise Exception('Invalid model ...')
 
     efficient_det_model = model_definition(checkpoint_path=os.path.join(checkpoint_path,
                                                                         efficient_det_checkpoint),
@@ -200,16 +207,14 @@ if __name__ == '__main__':
           train_loader=train_loader,
           valid_loader=valid_loader,
           device=device,
-          save_path=save_path
-          )
+          save_path=save_path)
 
     # performance measure
     # restore model
     efficient_det_model = model_definition(inference=True,
                                            checkpoint_path=save_path,
                                            model_name=efficient_det_model_name,
-                                           pretrained_backbone=False
-                                           )
+                                           pretrained_backbone=False)
     efficient_det_model = efficient_det_model.to(device)
 
     # get test data
@@ -223,15 +228,18 @@ if __name__ == '__main__':
                                          img_info={'img_size': torch.tensor(test_image_sizes, device=device).float(),
                                                    'img_scale': torch.ones(num_images, device=device).float()})
 
+    detections = detections.cpu().numpy()
     confidence_threshold = 0.2
     print('Number of test images: ', num_images)
     print('Confidence threshold: ', confidence_threshold)
-    print('Detection data structure (per test image): ', detections[0])
+    # 4 floats for bbox, confidence score, class
+    print('Detected bounding box format: ', detections[0][0])
 
-    predicted_data = post_process(detections=detections,
-                                  image_sizes=test_image_sizes,
-                                  test_image_ids=test_images_ids
-                                  )
+    scaled_bboxes, prediction_scores, prediction_classes = post_process(detections=detections,
+                                                                        image_sizes=test_image_sizes,
+                                                                        test_image_ids=test_images_ids)
+    predicted_data = build_output_dataframe(scaled_bboxes=scaled_bboxes, test_image_ids=test_images_ids)
+
     # show predicted bboxes on unseen data
     # idx is 0...9
     idx = 0

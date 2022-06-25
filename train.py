@@ -8,8 +8,8 @@ import tqdm
 
 
 def train_loop(model: torch.nn.Module,
-               trainloader: DataLoader,
-               validloader: DataLoader,
+               train_loader: DataLoader,
+               valid_loader: DataLoader,
                epochs: int,
                optimizer: torch.optim,
                lr_scheduler: torch.optim.lr_scheduler,
@@ -20,8 +20,8 @@ def train_loop(model: torch.nn.Module,
 
     Args:
         model: object detector.
-        trainloader: train data.
-        validloader: validation data.
+        train_loader: train data.
+        valid_loader: validation data.
         epochs: number of epochs to train the model.
         optimizer: compute gradients.
         lr_scheduler: simple scheduler that decrease lr during training.
@@ -36,13 +36,13 @@ def train_loop(model: torch.nn.Module,
     for epoch in range(epochs):
         print("---- Train Epoch %s ----" % (epoch + 1))
         model.train()
-        num_batches = len(trainloader)
+        num_batches = len(train_loader)
         running_train_loss = 0.0
         log_interval = num_batches // 5
         train_batches = 0
 
-        for batch_index, (images, targets) in tqdm.tqdm(enumerate(trainloader), desc="Training on train set",
-                                                        total=len(trainloader)):
+        for batch_index, (images, targets) in tqdm.tqdm(enumerate(train_loader), desc="Training on train set",
+                                                        total=len(train_loader)):
             # acc samples
             train_batches += 1
 
@@ -66,7 +66,7 @@ def train_loop(model: torch.nn.Module,
             losses.backward()
             optimizer.step()
 
-            # learing rate scheduler step
+            # learning rate scheduler step
             if lr_scheduler:
                 lr_scheduler.step()
 
@@ -76,7 +76,7 @@ def train_loop(model: torch.nn.Module,
             if log_interval > 0:
                 if batch_index % log_interval == 0:
                     print(
-                        f'\n[{batch_index + 1:5d} "/" {len(trainloader)}] train loss: {running_train_loss / train_batches}')
+                        f'\n[{batch_index + 1:5d} "/" {len(train_loader)}] train loss: {running_train_loss / train_batches}')
                     global_step = batch_index + (epoch * num_batches)
                     writer.add_scalar('Metrics/Loss_Train_IT_Sum', losses, global_step)
                     writer.add_scalar('Metrics/Loss_Train_IT_Boxes', loss_boxes_regr, global_step)
@@ -91,8 +91,8 @@ def train_loop(model: torch.nn.Module,
             running_valid_loss = 0.0
             valid_batches = 0
 
-            for batch_index, (images, targets) in tqdm.tqdm(enumerate(validloader), desc="Evaluating on validation set",
-                                                            total=len(validloader)):
+            for batch_index, (images, targets) in tqdm.tqdm(enumerate(valid_loader), desc="Evaluating on validation set",
+                                                            total=len(valid_loader)):
                 # acc samples
                 valid_batches += 1
 
@@ -115,7 +115,7 @@ def train_loop(model: torch.nn.Module,
             valid_losses.append(running_valid_loss / valid_batches)
 
             print(f'Validation loss: {running_valid_loss / valid_batches}')
-            writer.add_scalar("Metrics/Loss_validation", running_valid_loss / train_batches, epoch + 1)
+            writer.add_scalar("Metrics/Loss_validation", running_valid_loss / valid_batches, epoch + 1)
 
     return train_losses, valid_losses
 
@@ -141,7 +141,7 @@ def train(model_name: str,
         save_path: location where model will be saved.
     """
 
-    optimizer = optim.AdamW(efficient_det_model.parameters(), lr=0.001)
+    optimizer = optim.AdamW(efficient_det_model.parameters(), lr=0.0002)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 
     # free memory
