@@ -4,6 +4,8 @@ import pandas as pd
 import gc
 from torchvision import transforms
 from torch.utils.data import DataLoader
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
 import timm
 from effdet.config.model_config import efficientdet_model_param_dict
@@ -16,8 +18,11 @@ from performance_measure import get_test_images, post_process
 from utils import fix_random, show_images, count_parameters, set_requires_grad_for_layer, build_output_dataframe
 
 
-def data_preparation(original_img_size, train_path='./dataset', name='GlobalWheatDetection') -> [DataLoader,
-                                                                                                 DataLoader]:
+def data_preparation(original_img_size,
+                     num_workers=1,
+                     batch_size=16,
+                     train_path='./dataset',
+                     name='GlobalWheatDetection') -> [DataLoader, DataLoader]:
     # unzip dataset
     unzip_dataset()
 
@@ -33,7 +38,7 @@ def data_preparation(original_img_size, train_path='./dataset', name='GlobalWhea
     # splitting the dataset
     train_set, val_set = train_test_split(annotations, test_size=0.2, random_state=42)
 
-    # get train and validation dataloaders
+    # get train and validation data loaders
     path_images = os.path.join(train_path, name, 'train')
     train_dataset = GWDataset(path_images=path_images,
                               dataset=train_set,
@@ -57,10 +62,11 @@ def data_preparation(original_img_size, train_path='./dataset', name='GlobalWhea
                               drop_last=True,
                               num_workers=num_workers,
                               collate_fn=collate_fn)
+
     valid_loader = DataLoader(validation_dataset,
                               batch_size=batch_size,
                               shuffle=False,
-                              drop_last=False,
+                              drop_last=True,
                               num_workers=num_workers,
                               collate_fn=collate_fn)
 
@@ -137,32 +143,55 @@ if __name__ == '__main__':
     # common datasets hyperparameters
     mean_image_net = [0.485, 0.456, 0.406]
     std_image_net = [0.229, 0.224, 0.225]
-    normalize = transforms.Normalize(mean_image_net, std_image_net)
 
     # width/height of all input img is 1024
-    original_img_size = 1024
+    input_img_size = 1024
 
     # resize images to EfficientDet d0 input resolution, i.e. 512*512
     img_size = 512
 
-    # quite standard augmentations
-    data_transforms = {'train': transforms.Compose([transforms.RandomResizedCrop(img_size),
-                                                    transforms.RandomHorizontalFlip(),
-                                                    transforms.ToTensor(),
-                                                    normalize]),
+    # Albumentation library has a Normalize with default mean and std = to ImageNet values,
+    # moreover, bbox_params of Compose allows to Normalize coordinates by dividing for input
+    # image size (input_img_size) in order to work with small floats instead with big integers
+    # in range 0 - 1024
+    data_transforms = {'train': A.Compose([A.RandomSizedCrop(min_max_height=(800, 800),
+                                                             height=input_img_size,
+                                                             width=input_img_size,
+                                                             p=0.5),
+                                           A.HorizontalFlip(p=0.5),
+                                           A.VerticalFlip(p=0.5),
+                                           A.Resize(height=img_size,
+                                                    width=img_size,
+                                                    p=1),
+                                           A.Normalize(mean=mean_image_net, std=std_image_net),
+                                           ToTensorV2(p=1)],
+                                          p=1,
+                                          bbox_params=A.BboxParams(format='pascal_voc',
+                                                                   min_area=0,
+                                                                   min_visibility=0,
+                                                                   label_fields=['labels'])),
 
-                       'val': transforms.Compose([transforms.Resize(img_size),
-                                                  transforms.ToTensor(),
-                                                  normalize])}
+                       'val': A.Compose([A.Resize(height=img_size,
+                                                  width=img_size,
+                                                  p=1),
+                                         A.Normalize(mean=mean_image_net, std=std_image_net),
+                                         ToTensorV2(p=1)],
+                                        p=1,
+                                        bbox_params=A.BboxParams(format='pascal_voc',
+                                                                 min_area=0,
+                                                                 min_visibility=0,
+                                                                 label_fields=['labels']))
+                       }
 
-    # hyperparameters adapted to resource availability :(
+    # adapted to resource availability :(
     num_workers = 1
     batch_size = 16
 
-    # background + white head classes
-    num_classes = 2
+    # background already accounted by the EfficientDet model
+    # hence the number of classes of the task is 1
+    num_classes = 1
 
-    train_loader, valid_loader = data_preparation(original_img_size)
+    train_loader, valid_loader = data_preparation(input_img_size, num_workers, batch_size)
 
     # model definition and training
     print('Available efficient det models:')
