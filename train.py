@@ -1,4 +1,5 @@
 import datetime
+import gc
 from typing import List
 import torch
 import torch.optim as optim
@@ -27,9 +28,11 @@ def train_loop(model: torch.nn.Module,
         lr_scheduler: simple scheduler that decrease lr during training.
         device: cpu/cuda.
         writer: log statistics to Tensorboard.
+
     Return:
          train_losses: train loss for all epochs.
          valid_losses: valid loss for all epochs.
+
     """
 
     train_losses, valid_losses = [], []
@@ -139,12 +142,14 @@ def train(model_name: str,
         valid_loader: validation data.
         device: cpu/cuda.
         save_path: location where model will be saved.
+
     """
 
     optimizer = optim.AdamW(efficient_det_model.parameters(), lr=0.0002)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 
     # free memory
+    gc.collect()
     torch.cuda.empty_cache()
 
     # track experiments

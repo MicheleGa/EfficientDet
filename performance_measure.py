@@ -4,11 +4,12 @@ import numpy as np
 from PIL import Image
 import torch
 from ensemble_boxes import weighted_boxes_fusion
+from utils import build_output_dataframe, show_images
 
 
 def get_test_images(dataset_path='./dataset',
                     name='GlobalWheatDetection',
-                    data_transforms=None):
+                    data_transforms=None) -> [torch.Tensor, List, List]:
     """
     Collect the 10 test images in a list of PIL objects
 
@@ -16,9 +17,11 @@ def get_test_images(dataset_path='./dataset',
         dataset_path: dataset folder.
         name: specific dataset.
         data_transforms: validation transformation.
+
     Return:
         images: torch tensor with the 10 PIL images.
         images_id: identifier of each image.
+
     """
     # gather test images in a list of PIL objects
     test_path = os.path.join(dataset_path, name, 'test')
@@ -45,7 +48,6 @@ def get_test_images(dataset_path='./dataset',
 
 def post_process(detections,
                  image_sizes,
-                 test_image_ids,
                  confidence_threshold=0.2,
                  iou_threshold=0.44,
                  skip_box_thr=0.43,
@@ -57,12 +59,14 @@ def post_process(detections,
     Args:
         detections: detected bboxes by the fine-tuned efficient det.
         image_sizes: list of pair (height, width) for each image in order to rescale bboxes correctly.
-        test_image_ids: image ids to compose the final df.
         confidence_threshold: confidence threshold.
-        iou_threshold: intersection over union threshold.
-        image_crop: as for image_sizes is needed to rescale bboxes.
+        iou_threshold: IoU value for boxes to be a match.
+        skip_box_thr: exclude boxes with score lower than this variable.
+        img_size: needed to correctly perform scaling of bboxes.
+
     Return:
-        df: dataframe that has bboxes on the row, for each bbox image id and coordinates of the bbox are reported.
+        Lists of scaled bboxes, prediction scores and classes.
+
     """
 
     # model's output processing to display predicted boxes
@@ -113,3 +117,42 @@ def post_process(detections,
             scaled_bboxes.append(bboxes)
 
     return scaled_bboxes, prediction_scores, prediction_classes
+
+
+def plot_predictions(num_images,
+                     detections,
+                     test_image_sizes,
+                     test_images_ids,
+                     confidence_threshold=0.2) -> None:
+    """
+    Given the output of efficient det d0, apply NMS or WBFand then save figure with predicted boxes on the test image.
+
+    Args:
+        num_images: number of test images.
+        detections: output from efficient det d0.
+        test_image_sizes: list of pair (height,width) associated with each test image.
+        test_images_ids: images identifier to build dataframe.
+        confidence_threshold: threshold to decide which boxes to delete from predictions.
+
+    """
+
+    print('Number of test images: ', num_images)
+    print('Confidence threshold: ', confidence_threshold)
+    # 4 floats for bbox, confidence score, class
+    print('Detected bounding box format: ', detections[0][0])
+
+    # apply NMS or WBF
+    scaled_bboxes, prediction_scores, prediction_classes = post_process(detections=detections,
+                                                                        image_sizes=test_image_sizes)
+
+    # organize post processed predictions in a dataframe
+    predicted_data = build_output_dataframe(scaled_bboxes=scaled_bboxes, test_image_ids=test_images_ids)
+
+    # show predicted bboxes on unseen data
+    # idx is 0...9
+    idx = 0
+    show_images(df=predicted_data,
+                idx=idx,
+                folder=os.path.join('./dataset', 'GlobalWheatDetection', 'test'),
+                title='Wheat Head Test',
+                linecolor='red')
