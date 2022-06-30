@@ -52,7 +52,7 @@ def train_loop(model: torch.nn.Module,
             # get inputs (may move this part to collate fn)
             inputs = torch.stack(list(image.to(device) for image in images)).float()
             annotations = {
-                'bbox': [target['boxes'].float().to(device) for target in targets],
+                'bbox': [target['bboxes'].float().to(device) for target in targets],
                 'cls': [target['labels'].float().to(device) for target in targets]
             }
 
@@ -102,10 +102,10 @@ def train_loop(model: torch.nn.Module,
                 # get inputs (may move this part to collate fn)
                 inputs = torch.stack(list(image.to(device) for image in images)).float()
                 annotations = {
-                    'bbox': [target['boxes'].float().to(device) for target in targets],
+                    'bbox': [target['bboxes'].float().to(device) for target in targets],
                     'cls': [target['labels'].float().to(device) for target in targets],
-                    'img_size': torch.tensor([target["img_size"] for target in targets]).float().to(device),
-                    'img_scale': torch.tensor([target["img_scale"] for target in targets]).float().to(device)
+                    'img_size': torch.tensor([target['img_size'] for target in targets]).float().to(device),
+                    'img_scale': torch.tensor([target['img_scale'] for target in targets]).float().to(device)
                 }
 
                 # forward
@@ -126,6 +126,7 @@ def train_loop(model: torch.nn.Module,
 def train(model_name: str,
           efficient_det_model: torch.nn.Module,
           epochs: int,
+          lr: float,
           train_loader: torch.utils.data.DataLoader,
           valid_loader: torch.utils.data.DataLoader,
           device: str,
@@ -138,6 +139,7 @@ def train(model_name: str,
         model_name: specify the type of EfficientDet.
         efficient_det_model: torch.nn.Module to fine-tune.
         epochs: number of training loops.
+        lr: starting learning rate.
         train_loader: training data.
         valid_loader: validation data.
         device: cpu/cuda.
@@ -145,15 +147,12 @@ def train(model_name: str,
 
     """
 
-    optimizer = optim.AdamW(efficient_det_model.parameters(), lr=0.0002)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
-
-    # free memory
-    gc.collect()
-    torch.cuda.empty_cache()
+    optimizer = optim.AdamW(efficient_det_model.parameters(), lr=lr)
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
+    scheduler = None
 
     # track experiments
-    writer = SummaryWriter(log_dir=f'runs/{model_name}_{datetime.datetime.now()}')
+    writer = SummaryWriter(log_dir=f'runs/{model_name}_{str(datetime.datetime.now()).replace(" ", "_")}')
 
     _, _ = train_loop(efficient_det_model,
                       train_loader,
@@ -168,6 +167,4 @@ def train(model_name: str,
     writer.close()
 
     # save model for inference
-    torch.save({
-        'model_state_dict': efficient_det_model.model.state_dict()
-    }, save_path)
+    torch.save(efficient_det_model.model.state_dict(), save_path)

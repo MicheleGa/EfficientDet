@@ -134,7 +134,7 @@ def data_preparation(data_transforms,
 
     valid_loader = DataLoader(validation_dataset,
                               batch_size=batch_size,
-                              shuffle=True,
+                              shuffle=False,
                               drop_last=True,
                               num_workers=num_workers,
                               collate_fn=collate_fn)

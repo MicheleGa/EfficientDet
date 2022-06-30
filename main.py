@@ -7,8 +7,7 @@ from model import model_definition
 from preprocessing import data_preparation
 from train import train
 from performance_measure import get_test_images, plot_predictions
-from utils import fix_random, count_parameters
-
+from utils import fix_random, count_parameters, show_images
 
 if __name__ == '__main__':
 
@@ -33,14 +32,14 @@ if __name__ == '__main__':
     data_transforms = get_data_transforms(input_img_size, img_size)
 
     # adapted to resource availability :(
-    num_workers = 1
+    num_workers = 0
     batch_size = 16
 
     # background already accounted by the EfficientDet model
     # hence the number of classes of the task is 1
     num_classes = 1
 
-    train_loader, valid_loader = data_preparation(input_img_size, num_workers, batch_size)
+    train_loader, valid_loader = data_preparation(data_transforms, input_img_size, num_workers, batch_size)
 
     # model definition and training
     print('Available efficient det models:')
@@ -77,11 +76,13 @@ if __name__ == '__main__':
 
     # model training
     epochs = 5
+    lr = 0.0002
 
     save_path = os.path.join(checkpoint_path, efficient_det_model_name + '_gwd.pth')
     train(model_name=efficient_det_model_name,
           efficient_det_model=efficient_det_model,
           epochs=epochs,
+          lr=lr,
           train_loader=train_loader,
           valid_loader=valid_loader,
           device=device,
@@ -89,6 +90,7 @@ if __name__ == '__main__':
 
     # performance measure
     # restore model
+
     efficient_det_model = model_definition(inference=True,
                                            checkpoint_path=save_path,
                                            model_name=efficient_det_model_name,
@@ -99,16 +101,30 @@ if __name__ == '__main__':
     images_tensor, test_images_ids, test_image_sizes = get_test_images(data_transforms=data_transforms)
     num_images = len(test_images_ids)
 
+    images_tensor = images_tensor.float().to(device)
+    img_info = {
+        'img_size': torch.tensor(test_image_sizes).float().to(device),
+        'img_scale': torch.ones(num_images).float().to(device)
+    }
+
     # test model
     efficient_det_model.eval()
     with torch.no_grad():
         detections = efficient_det_model(images_tensor.to(device),
-                                         img_info={'img_size': torch.tensor(test_image_sizes, device=device).float(),
-                                                   'img_scale': torch.ones(num_images, device=device).float()})
+                                         img_info=img_info)
 
-    detections = detections.cpu().numpy()
+        detections = detections.cpu().numpy()
 
-    plot_predictions(num_images=num_images,
-                     detections=detections,
-                     test_image_sizes=test_image_sizes,
-                     test_images_ids=test_images_ids)
+    predicted_data = plot_predictions(num_images=num_images,
+                                      detections=detections,
+                                      test_image_sizes=test_image_sizes,
+                                      test_images_ids=test_images_ids)
+
+    # show predicted bboxes on unseen data
+    # idx is 0...9
+    idx = 4
+    show_images(df=predicted_data,
+                idx=idx,
+                folder=os.path.join('GlobalWheatDetection', 'test'),
+                title='Wheat Head Test',
+                linecolor='red')

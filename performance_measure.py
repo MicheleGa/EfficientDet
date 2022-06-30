@@ -1,6 +1,7 @@
 import os
 from typing import List
 import numpy as np
+import pandas as pd
 from PIL import Image
 import torch
 from ensemble_boxes import weighted_boxes_fusion
@@ -40,7 +41,11 @@ def get_test_images(dataset_path='./dataset',
     images_tensor = []
     for image in images:
         images_tensor.append(
-            data_transforms['val'](image)
+            data_transforms['val'](
+                image=np.array(image, dtype=np.float32),
+                labels=np.ones(1),
+                bboxes=np.array([[0, 0, 1, 1]])  # fake, just need image transformation
+            )['image']
         )
 
     return torch.stack(images_tensor), test_image_ids, test_image_sizes
@@ -123,7 +128,7 @@ def plot_predictions(num_images,
                      detections,
                      test_image_sizes,
                      test_images_ids,
-                     confidence_threshold=0.2) -> None:
+                     confidence_threshold=0.2) -> pd.DataFrame:
     """
     Given the output of efficient det d0, apply NMS or WBFand then save figure with predicted boxes on the test image.
 
@@ -133,6 +138,8 @@ def plot_predictions(num_images,
         test_image_sizes: list of pair (height,width) associated with each test image.
         test_images_ids: images identifier to build dataframe.
         confidence_threshold: threshold to decide which boxes to delete from predictions.
+    Return:
+        predicted_data: pandas df in the same format as annotations.
 
     """
 
@@ -148,11 +155,4 @@ def plot_predictions(num_images,
     # organize post processed predictions in a dataframe
     predicted_data = build_output_dataframe(scaled_bboxes=scaled_bboxes, test_image_ids=test_images_ids)
 
-    # show predicted bboxes on unseen data
-    # idx is 0...9
-    idx = 0
-    show_images(df=predicted_data,
-                idx=idx,
-                folder=os.path.join('./dataset', 'GlobalWheatDetection', 'test'),
-                title='Wheat Head Test',
-                linecolor='red')
+    return predicted_data

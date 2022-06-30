@@ -34,16 +34,13 @@ def model_definition(inference=False,
         net.load_state_dict(checkpoint)
 
     # reset_head will change config to meet our problem number of classes
-    if num_classes is not None and num_classes != config.num_classes:
+    if num_classes != config.num_classes:
         net.reset_head(num_classes=num_classes)
-
-    # change model architecture with the new config
-    net.class_net = HeadNet(config, num_outputs=config.num_classes)
 
     if inference:
         # load just trained model
         checkpoint = torch.load(checkpoint_path)
-        net.load_state_dict(checkpoint['model_state_dict'])
+        net.load_state_dict(checkpoint)
 
         # free memory
         del checkpoint

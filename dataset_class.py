@@ -48,7 +48,7 @@ class GWDataset(Dataset):
         labels = torch.ones((boxes.shape[0],), dtype=torch.int64)
 
         sample = {
-            'image': np.array(image, dtype=np.float32) / 255,
+            'image': np.array(image, dtype=np.float32),
             'bboxes': boxes,
             'labels': labels,
         }
@@ -100,13 +100,7 @@ def get_data_transforms(input_img_size=1024, img_size=512):
     # moreover, bbox_params of Compose allows to Normalize coordinates by dividing for input
     # image size (input_img_size) in order to work with small floats instead with big integers
     # in range 0 - 1024
-    data_transforms = {'train': A.Compose([A.RandomCrop(height=input_img_size,
-                                                        width=input_img_size,
-                                                        p=0.5),
-                                           A.GaussNoise(p=0.3),
-                                           A.RandomBrightnessContrast(p=0.3),
-                                           A.ShiftScaleRotate(p=0.5),
-                                           A.HorizontalFlip(p=0.5),
+    data_transforms = {'train': A.Compose([A.HorizontalFlip(p=0.5),
                                            A.VerticalFlip(p=0.5),
                                            A.Resize(height=img_size,
                                                     width=img_size,
