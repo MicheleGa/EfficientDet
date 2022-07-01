@@ -110,12 +110,12 @@ def data_preparation(data_transforms,
     # get train and validation data loaders
     path_images = os.path.join(train_path, name, 'train')
     train_dataset = GWDataset(path_images=path_images,
-                              dataset=train_set,
+                              dataset=train_set[:500],
                               original_img_size=original_img_size,
                               transforms=data_transforms['train'])
 
     validation_dataset = GWDataset(path_images=path_images,
-                                   dataset=val_set,
+                                   dataset=val_set[:100],
                                    original_img_size=original_img_size,
                                    transforms=data_transforms['val'])
     # show a data sample with bbox

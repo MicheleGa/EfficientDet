@@ -122,9 +122,9 @@ if __name__ == '__main__':
 
     # show predicted bboxes on unseen data
     # idx is 0...9
-    idx = 4
+    idx = 0
     show_images(df=predicted_data,
                 idx=idx,
-                folder=os.path.join('GlobalWheatDetection', 'test'),
+                folder=os.path.join('./dataset/GlobalWheatDetection', 'test'),
                 title='Wheat Head Test',
                 linecolor='red')
