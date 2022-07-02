@@ -1,79 +1,11 @@
 import datetime
+import time
 import tqdm
 from typing import List
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from objdetecteval.metrics.coco_metrics import get_coco_stats
-from performance_measure import post_process
-
-
-def add_coco_stats_metrics(results, writer, epoch):
-
-    loss = results['val_loss']
-    metrics = results['metrics']
-
-    writer.add_scalar('Metrics/Validation_coco_stats_loss', loss, epoch)
-
-    writer.add_scalar('Metrics/Validation_AP_all', metrics['AP_all'], epoch)
-    print('Metrics Validation: AP_all', metrics['AP_all'])
-    writer.add_scalar('Metrics/Validation_AP_all_IOU_0_50', metrics['AP_all_IOU_0_50'], epoch)
-    print('Metrics Validation: AP_all_IOU_0_50', metrics['AP_all_IOU_0_50'])
-    writer.add_scalar('Metrics/Validation_AP_all_IOU_0_75', metrics['AP_all_IOU_0_75'], epoch)
-    print('Metrics Validation: AP_all_IOU_0_75', metrics['AP_all_IOU_0_75'])
-    writer.add_scalar('Metrics/Validation_AP_small', metrics['AP_small'], epoch)
-    print('Metrics Validation: AP_small', metrics['AP_small'])
-    writer.add_scalar('Metrics/Validation_AP_medium', metrics['AP_medium'], epoch)
-    print('Metrics Validation: AP_medium', metrics['AP_medium'])
-    writer.add_scalar('Metrics/Validation_AP_large', metrics['AP_large'], epoch)
-    print('Metrics Validation: AP_large', metrics['AP_large'])
-    writer.add_scalar('Metrics/Validation_AR_all_dets_1', metrics['AR_all_dets_1'], epoch)
-    print('Metrics Validation: AR_all_dets_1', metrics['AR_all_dets_1'])
-    writer.add_scalar('Metrics/Validation_AR_all_dets_10', metrics['AR_all_dets_10'], epoch)
-    print('Metrics Validation: AR_all_dets_10', metrics['AR_all_dets_10'])
-    writer.add_scalar('Metrics/Validation_AR_all', metrics['AR_all'], epoch)
-    print('Metrics Validation: AR_all', metrics['AR_all'])
-    writer.add_scalar('Metrics/Validation_AR_small', metrics['AR_small'], epoch)
-    print('Metrics Validation: AR_small', metrics['AR_small'])
-    writer.add_scalar('Metrics/Validation_AR_medium', metrics['AR_medium'], epoch)
-    print('Metrics Validation: AR_medium', metrics['AR_medium'])
-    writer.add_scalar('Metrics/Validation_AR_large', metrics['AR_large'], epoch)
-    print('Metrics Validation: AR_large', metrics['AR_large'])
-
-
-def validation_epoch_metric(outputs):
-    validation_loss_mean = torch.stack([output['loss'] for output in outputs]).mean()
-
-    detections = torch.cat([output['batch_predictions']['predictions'] for output in outputs])
-
-    image_ids = []
-    targets = []
-    for output in outputs:
-        batch_predictions = output['batch_predictions']
-        image_ids.extend(batch_predictions['image_ids'])
-        targets.extend(batch_predictions['targets'])
-
-    images_sizes = [target['img_size'] for target in targets]
-    predicted_bboxes, predicted_class_confidences, predicted_class_labels = post_process(detections=detections.cpu().numpy(),
-                                                                                         image_sizes=images_sizes)
-
-    truth_image_ids = [target['image_id'] for target in targets]
-    # convert to xyxy for evaluation
-    truth_boxes = [target['bboxes'][:, [1, 0, 3, 2]].tolist() for target in targets]
-    truth_labels = [target['labels'].tolist() for target in targets]
-
-    stats = get_coco_stats(
-        prediction_image_ids=image_ids,
-        predicted_class_confidences=predicted_class_confidences,
-        predicted_bboxes=predicted_bboxes,
-        predicted_class_labels=predicted_class_labels,
-        target_image_ids=truth_image_ids,
-        target_bboxes=truth_boxes,
-        target_class_labels=truth_labels,
-    )['All']
-
-    return {'val_loss': validation_loss_mean, 'metrics': stats}
 
 
 def train_loop(model: torch.nn.Module,
@@ -112,23 +44,18 @@ def train_loop(model: torch.nn.Module,
         log_interval = num_batches // 5
         train_batches = 0
 
-        for batch_index, (images, targets) in tqdm.tqdm(enumerate(train_loader), desc="Training on train set",
-                                                        total=len(train_loader)):
+        for batch_index, (images, annotations, _) in tqdm.tqdm(enumerate(train_loader), desc="Training on train set",
+                                                               total=len(train_loader)):
             # acc samples
             train_batches += 1
 
-            # get inputs (may move this part to collate fn)
-            inputs = torch.stack(list(image.to(device) for image in images)).float()
-            annotations = {
-                'bbox': [target['bboxes'].float().to(device) for target in targets],
-                'cls': [target['labels'].float().to(device) for target in targets]
-            }
+            # inputs are accordingly formatted by collate fn
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = model(inputs, annotations)
+            outputs = model(images, annotations)
 
             loss_class = outputs['class_loss']
             loss_boxes_regr = outputs['box_loss']
@@ -162,49 +89,23 @@ def train_loop(model: torch.nn.Module,
             running_valid_loss = 0.0
             valid_batches = 0
 
-            for batch_index, (images, targets) in tqdm.tqdm(enumerate(valid_loader),
-                                                            desc="Evaluating on validation set",
-                                                            total=len(valid_loader)):
+            for batch_index, (images, annotations, _) in tqdm.tqdm(enumerate(valid_loader),
+                                                                   desc="Evaluating on validation set",
+                                                                   total=len(valid_loader)):
                 # acc samples
                 valid_batches += 1
-
-                # get inputs (may move this part to collate fn)
-                inputs = torch.stack(list(image.to(device) for image in images)).float()
-                annotations = {
-                    'bbox': [target['bboxes'].float().to(device) for target in targets],
-                    'cls': [target['labels'].float().to(device) for target in targets],
-                    'img_size': torch.tensor([target['img_size'] for target in targets]).float().to(device),
-                    'img_scale': torch.tensor([target['img_scale'] for target in targets]).float().to(device)
-                }
-
-                # image ids needed later during metrics
-                image_ids = [target['image_id'].float().to(device) for target in targets]
+                # get inputs: also img_size, img_scale and img_ids are needed for evaluation and metrics recording
 
                 # forward
-                outputs = model(inputs, annotations)
-                losses = outputs['loss']
-
-                detections = outputs['detections']
-
-                valid_outputs.append(
-                    {
-                        'loss': losses,
-                        'batch_predictions': {
-                            'predictions': detections,
-                            'targets': targets,
-                            'image_ids': image_ids
-                        }
-                    }
-                )
+                output = model(images, annotations)
+                losses = output['loss']
 
                 # print statistics
                 running_valid_loss += losses.item()
 
             valid_losses.append(running_valid_loss / valid_batches)
-            results = validation_epoch_metric(valid_outputs)
             print(f'Validation loss: {running_valid_loss / valid_batches}')
             writer.add_scalar('Metrics/Loss_running_val', running_valid_loss / valid_batches, epoch + 1)
-            add_coco_stats_metrics(results, writer, epoch + 1)
 
     return train_losses, valid_losses
 
@@ -236,10 +137,12 @@ def train(model_name: str,
     optimizer = optim.AdamW(efficient_det_model.parameters(), lr=lr)
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
     scheduler = None
+    run_dir = f'runs/{model_name}_{str(datetime.datetime.now()).replace(" ", "_").replace("-", "_").replace(":", "_").replace(".", "_")}'
 
     # track experiments
-    writer = SummaryWriter(log_dir=f'runs/{model_name}_{str(datetime.datetime.now()).replace(" ", "_")}')
+    writer = SummaryWriter(log_dir=run_dir)
 
+    start_time = time.time()
     _, _ = train_loop(efficient_det_model,
                       train_loader,
                       valid_loader,
@@ -248,6 +151,9 @@ def train(model_name: str,
                       scheduler,
                       device,
                       writer)
+    duration = time.time() - start_time
+
+    print('Execution time: ', duration)
 
     writer.flush()
     writer.close()

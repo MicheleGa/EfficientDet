@@ -57,7 +57,7 @@ def show_images(df: pd.DataFrame,
     plt.figure(figsize=(10, 10))
     plt.imshow(image)
     plt.axis('off')
-    plt.suptitle(title)
+    plt.suptitle(title + f' - {image_id}')
     plt.savefig(f'./{title} - idx {idx}.jpg')
     plt.clf()
 

@@ -6,6 +6,7 @@ from PIL import Image
 import torch
 from ensemble_boxes import weighted_boxes_fusion
 from utils import build_output_dataframe, show_images
+from objdetecteval.metrics.coco_metrics import get_coco_stats
 
 
 def get_test_images(dataset_path='./dataset',
@@ -156,3 +157,57 @@ def plot_predictions(num_images,
     predicted_data = build_output_dataframe(scaled_bboxes=scaled_bboxes, test_image_ids=test_images_ids)
 
     return predicted_data
+
+
+def print_metrics(results):
+    loss = results['val_loss']
+    metrics = results['metrics']
+
+    print('Test loss:', loss)
+    print('Metrics Validation: AP_all', metrics['AP_all'])
+    print('Metrics Validation: AP_all_IOU_0_50', metrics['AP_all_IOU_0_50'])
+    print('Metrics Validation: AP_all_IOU_0_75', metrics['AP_all_IOU_0_75'])
+    print('Metrics Validation: AP_small', metrics['AP_small'])
+    print('Metrics Validation: AP_medium', metrics['AP_medium'])
+    print('Metrics Validation: AP_large', metrics['AP_large'])
+    print('Metrics Validation: AR_all_dets_1', metrics['AR_all_dets_1'])
+    print('Metrics Validation: AR_all_dets_10', metrics['AR_all_dets_10'])
+    print('Metrics Validation: AR_all', metrics['AR_all'])
+    print('Metrics Validation: AR_small', metrics['AR_small'])
+    print('Metrics Validation: AR_medium', metrics['AR_medium'])
+    print('Metrics Validation: AR_large', metrics['AR_large'])
+
+
+def compute_metrics(output):
+    # test loss
+    test_loss_mean = output['loss'].cpu().numpy()
+
+    # collect data to compute mAP
+    image_ids = output['image_ids']
+    batch_predictions = output['detections']
+    annotation = output['annotation']
+    detections = torch.cat([batch_predictions]).cpu().numpy()
+
+    images_sizes = annotation['img_size'].cpu().numpy()
+    predicted_bboxes, predicted_class_confidences, predicted_class_labels = post_process(detections=detections,
+                                                                                         image_sizes=images_sizes,
+                                                                                         confidence_threshold=0.001,
+                                                                                         iou_threshold=0.02,
+                                                                                         skip_box_thr=0.01)
+
+    truth_image_ids = image_ids
+    # convert to xyxy for evaluation
+    truth_boxes = annotation['bbox'][:, [1, 0, 3, 2]].tolist()
+    truth_labels = annotation['labels'].tolist()
+
+    stats = get_coco_stats(
+        prediction_image_ids=image_ids,
+        predicted_class_confidences=predicted_class_confidences,
+        predicted_bboxes=predicted_bboxes,
+        predicted_class_labels=predicted_class_labels,
+        target_image_ids=truth_image_ids,
+        target_bboxes=truth_boxes,
+        target_class_labels=truth_labels,
+    )['All']
+
+    print_metrics({'val_loss': test_loss_mean, 'metrics': stats})

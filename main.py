@@ -6,7 +6,7 @@ from dataset_class import get_data_transforms
 from model import model_definition
 from preprocessing import data_preparation
 from train import train
-from performance_measure import get_test_images, plot_predictions
+from performance_measure import get_test_images, plot_predictions, compute_metrics
 from utils import fix_random, count_parameters, show_images
 
 if __name__ == '__main__':
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     # hence the number of classes of the task is 1
     num_classes = 1
 
-    train_loader, valid_loader = data_preparation(data_transforms, input_img_size, num_workers, batch_size)
+    train_loader, valid_loader, test_loader = data_preparation(data_transforms, input_img_size, device, num_workers, batch_size)
 
     # model definition and training
     print('Available efficient det models:')
@@ -89,15 +89,39 @@ if __name__ == '__main__':
           save_path=save_path)
 
     # performance measure
-    # restore model
+    # notice that the model is a DetBenchTrain
+    efficient_det_model.eval()
 
+    # get data from the test loader
+    dl_iter = iter(test_loader)
+    batch = next(dl_iter)
+
+    images, annotations, image_ids = batch
+
+    with torch.no_grad():
+        # inference with model
+        output = efficient_det_model(images, annotations)
+
+        # collect test results
+        eval_results = {
+            'loss': output['loss'],
+            'detections': output['detections'],
+            'annotation': annotations,
+            'image_ids': image_ids
+        }
+
+        # get metrics result with objdetecteval package
+        compute_metrics(eval_results)
+
+    # restore model and test it on unseen data
+    # notice that the model is a DetBenchPredict
     efficient_det_model = model_definition(inference=True,
                                            checkpoint_path=save_path,
                                            model_name=efficient_det_model_name,
                                            pretrained_backbone=False)
     efficient_det_model = efficient_det_model.to(device)
 
-    # get test data
+    # get unseen data
     images_tensor, test_images_ids, test_image_sizes = get_test_images(data_transforms=data_transforms)
     num_images = len(test_images_ids)
 

@@ -63,17 +63,18 @@ class GWDataset(Dataset):
                 target['bboxes'][:, [0, 1, 2, 3]] = target['bboxes'][:, [1, 0, 3, 2]]
                 break
 
-        # image has been transformed at this point
+        # image normalized
         image = sample['image']
         labels = sample['labels']
+        image_id = torch.tensor([idx])
 
         # img_size and img_scale needed by the model during evaluation
         target['labels'] = torch.as_tensor(labels)
-        target['image_id'] = torch.tensor([idx])
+        target['image_id'] = image_id
         target['img_size'] = (height, width)
         target['img_scale'] = torch.tensor([1.0])
 
-        return image, target
+        return image, target, image_id
 
     def __len__(self) -> int:
         return self.dataset.shape[0]

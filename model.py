@@ -1,7 +1,6 @@
 import gc
 import torch
 from effdet import get_efficientdet_config, EfficientDet, DetBenchPredict, DetBenchTrain
-from effdet.efficientdet import HeadNet
 from utils import set_requires_grad_for_layer
 
 
