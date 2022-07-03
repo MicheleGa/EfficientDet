@@ -14,7 +14,6 @@ def train_loop(model: torch.nn.Module,
                epochs: int,
                optimizer: torch.optim,
                lr_scheduler: torch.optim.lr_scheduler,
-               device: str,
                writer: SummaryWriter) -> [List[float], List[float]]:
     """
     Train/Validation loop.
@@ -26,7 +25,6 @@ def train_loop(model: torch.nn.Module,
         epochs: number of epochs to train the model.
         optimizer: compute gradients.
         lr_scheduler: simple scheduler that decrease lr during training.
-        device: cpu/cuda.
         writer: log statistics to Tensorboard.
 
     Return:
@@ -116,7 +114,6 @@ def train(model_name: str,
           lr: float,
           train_loader: torch.utils.data.DataLoader,
           valid_loader: torch.utils.data.DataLoader,
-          device: str,
           save_path: str
           ) -> None:
     """
@@ -129,7 +126,6 @@ def train(model_name: str,
         lr: starting learning rate.
         train_loader: training data.
         valid_loader: validation data.
-        device: cpu/cuda.
         save_path: location where model will be saved.
 
     """
@@ -149,7 +145,6 @@ def train(model_name: str,
                       epochs,
                       optimizer,
                       scheduler,
-                      device,
                       writer)
     duration = time.time() - start_time
 

@@ -39,7 +39,11 @@ if __name__ == '__main__':
     # hence the number of classes of the task is 1
     num_classes = 1
 
-    train_loader, valid_loader, test_loader = data_preparation(data_transforms, input_img_size, device, num_workers, batch_size)
+    train_loader, valid_loader, test_loader = data_preparation(data_transforms,
+                                                               input_img_size,
+                                                               device,
+                                                               num_workers,
+                                                               batch_size)
 
     # model definition and training
     print('Available efficient det models:')
@@ -85,7 +89,6 @@ if __name__ == '__main__':
           lr=lr,
           train_loader=train_loader,
           valid_loader=valid_loader,
-          device=device,
           save_path=save_path)
 
     # performance measure
