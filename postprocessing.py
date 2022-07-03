@@ -1,17 +1,11 @@
 import os
 from typing import List
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from PIL import Image
 import torch
 from ensemble_boxes import weighted_boxes_fusion
-from utils import build_output_dataframe, show_images
-from objdetecteval.metrics import (
-    image_metrics as im,
-    coco_metrics as cm
-)
+from utils import build_output_dataframe
 
 
 def get_test_images(dataset_path='./dataset',
@@ -162,99 +156,3 @@ def plot_predictions(num_images,
     predicted_data = build_output_dataframe(scaled_bboxes=scaled_bboxes, test_image_ids=test_images_ids)
 
     return predicted_data
-
-
-def print_metrics(preds_df, labels_df):
-    infer_df = im.get_inference_metrics_from_df(preds_df, labels_df)
-    print(infer_df)
-
-    class_summary_df = im.summarise_inference_metrics(infer_df)
-    print(class_summary_df)
-
-    figsize = (5, 5)
-    fontsize = 16
-
-    fig_confusion = (
-        class_summary_df[["TP", "FP", "FN"]]
-            .plot(kind="bar", figsize=figsize, width=1, align="center", fontsize=fontsize)
-            .get_figure()
-    )
-    plt.clf()
-
-    fig_pr = (
-        class_summary_df[["Precision", "Recall"]]
-            .plot(kind="bar", figsize=figsize, width=1, align="center", fontsize=fontsize)
-            .get_figure()
-    )
-    plt.clf()
-
-    res = cm.get_coco_from_dfs(preds_df, labels_df, False)
-    print(res)
-
-
-def compute_metrics(output):
-    # test loss
-    test_loss_mean = output['loss'].cpu().numpy()
-
-    # collect data to compute metrics
-    image_names = output['image_ids']
-    batch_predictions = output['detections']
-    annotation = output['annotation']
-    detections = torch.cat([batch_predictions]).cpu().numpy()
-
-    images_sizes = annotation['img_size'].cpu().numpy()
-    predicted_bboxes, predicted_class_confidences, predicted_class_labels = post_process(detections=detections,
-                                                                                         image_sizes=images_sizes)
-    # prepare ground truth df
-    truth_image_ids = [i for i in range(1, len(predicted_bboxes) + 1)]
-
-    # convert to xyxy for evaluation
-    # only data from data loaders has inverted coordinates
-    truth_boxes = [box.cpu().numpy() for box in annotation['bbox']]
-    truth_boxes = np.array(truth_boxes)
-    truth_boxes = truth_boxes.squeeze(axis=1)
-    truth_boxes = truth_boxes[:, [1, 0, 3, 2]].tolist()
-
-    truth_labels = [torch.tensor([1.0], device='cpu').tolist() for _ in range(len(truth_boxes))]
-
-    labels_df = pd.DataFrame(truth_boxes, columns=['xmin', 'ymin', 'xmax', 'ymax'])
-    labels_df['id'] = truth_image_ids
-    labels_df['label'] = truth_labels
-    labels_df['image_name'] = image_names
-
-    print('Ground truth dataframe:')
-    print(labels_df)
-
-    # prepare prediction df
-    labels = []
-    names = []
-    scores = []
-    xmin, ymin, xmax, ymax = [], [], [], []
-    for i in range(len(predicted_bboxes)):
-        for j in range(len(predicted_bboxes[i])):
-            xmin.append(predicted_bboxes[i][j][0])
-            ymin.append(predicted_bboxes[i][j][1])
-            xmax.append(predicted_bboxes[i][j][2])
-            ymax.append(predicted_bboxes[i][j][3])
-
-            labels.append(int(predicted_class_labels[i][j]))
-            scores.append(predicted_class_confidences[i][j])
-            names.append(image_names[i])
-
-    images_id = [i + 1 for i in range(len(names))]
-
-    prediction_df = pd.DataFrame({
-        'xmin': xmin,
-        'ymin': ymin,
-        'xmax': xmax,
-        'ymax': ymax,
-        'id': images_id,
-        'label': labels,
-        'score': scores,
-        'image_name': names
-    })
-
-    print('Predictions dataframe:')
-    print(prediction_df)
-
-    print_metrics(prediction_df, labels_df)

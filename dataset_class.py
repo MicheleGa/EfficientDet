@@ -73,7 +73,7 @@ class GWDataset(Dataset):
         target['img_size'] = (height, width)
         target['img_scale'] = torch.tensor([1.0])
 
-        return image, target, f'{image_id}.jpg'
+        return image, target
 
     def __len__(self) -> int:
         return self.dataset.shape[0]

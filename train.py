@@ -42,8 +42,9 @@ def train_loop(model: torch.nn.Module,
         log_interval = num_batches // 5
         train_batches = 0
 
-        for batch_index, (images, annotations, _) in tqdm.tqdm(enumerate(train_loader), desc="Training on train set",
-                                                               total=len(train_loader)):
+        for batch_index, (images, annotations) in tqdm.tqdm(enumerate(train_loader),
+                                                            desc="Training on train set",
+                                                            total=len(train_loader)):
             # acc samples
             train_batches += 1
 
@@ -87,9 +88,9 @@ def train_loop(model: torch.nn.Module,
             running_valid_loss = 0.0
             valid_batches = 0
 
-            for batch_index, (images, annotations, _) in tqdm.tqdm(enumerate(valid_loader),
-                                                                   desc="Evaluating on validation set",
-                                                                   total=len(valid_loader)):
+            for batch_index, (images, annotations) in tqdm.tqdm(enumerate(valid_loader),
+                                                                desc="Evaluating on validation set",
+                                                                total=len(valid_loader)):
                 # acc samples
                 valid_batches += 1
                 # get inputs: also img_size, img_scale and img_ids are needed for evaluation and metrics recording
