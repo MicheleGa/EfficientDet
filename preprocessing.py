@@ -76,7 +76,7 @@ def data_preparation(data_transforms,
                      num_workers=1,
                      batch_size=16,
                      train_path='./dataset',
-                     name='GlobalWheatDetection') -> [DataLoader, DataLoader]:
+                     name='GlobalWheatDetection') -> [DataLoader, DataLoader, pd.DataFrame]:
     """
     Data pre-processing step where raw images and annotations are extracted from the
     zipped dataset and then organized into a torch Dataset class.
@@ -127,7 +127,7 @@ def data_preparation(data_transforms,
     show_images(annotations, idx, path_images, 'Wheat Head Example', 'red')
 
     def collate_fn(batch):
-        images, targets, image_ids = tuple(zip(*batch))
+        images, targets = tuple(zip(*batch))
 
         images = torch.stack(images)
         images = images.float().to(device)
@@ -160,4 +160,4 @@ def data_preparation(data_transforms,
                               num_workers=num_workers,
                               collate_fn=collate_fn)
 
-    return train_loader, valid_loader
+    return train_loader, valid_loader, annotations

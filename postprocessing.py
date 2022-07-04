@@ -124,7 +124,7 @@ def post_process(detections,
     return scaled_bboxes, prediction_scores, prediction_classes
 
 
-def plot_predictions(num_images,
+def get_predicted_df(num_images,
                      detections,
                      test_image_sizes,
                      test_images_ids,
