@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     # get model and print infos
     checkpoint_path = './models'
-    efficient_det_model_name = 'tf_efficientdet_d0'
+    efficient_det_model_name = 'tf_efficientnetv2_b0'
     efficient_det_checkpoint = ''
     print(f'Model: {efficient_det_model_name}')
 
@@ -62,6 +62,8 @@ if __name__ == '__main__':
         efficient_det_checkpoint = 'tf_efficientdet_d0_34-f153e0cf.pth'
     elif efficient_det_model_name == 'tf_efficientdet_d0_ap':
         efficient_det_checkpoint = 'tf_efficientdet_d0_ap-d0cdbd0a.pth'
+    elif efficient_det_model_name == 'tf_efficientnetv2_b0':
+        efficient_det_checkpoint = ''
     else:
         raise Exception('Invalid model ...')
 
