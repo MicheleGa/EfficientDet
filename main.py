@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     # get model and print infos
     checkpoint_path = './models'
-    efficient_det_model_name = 'tf_efficientnetv2_b0'
+    efficient_det_model_name = 'tf_efficientdet_d0'
     efficient_det_checkpoint = ''
     print(f'Model: {efficient_det_model_name}')
 
