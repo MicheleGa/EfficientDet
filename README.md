@@ -13,6 +13,7 @@ In particular, the code is a fine-tuning of the model into the Global Wheat Dete
 Install first all the dependencies in the *requirements.txt* file.
 Then the entry point is in *main.py*, where you can adjust hyperparamenters
 and decide which model to use.
+Since my GPU resources were not sufficient, I used Google Colab (free account), in which I deployed a jupyter notebook that made the training and code demo.
 
 # Third Party Code
 
